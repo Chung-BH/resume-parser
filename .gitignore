@@ -1,7 +1,36 @@
+# Python
 __pycache__/
 *.pyc
 .venv/
+
+# Node / frontend
 node_modules/
 frontend/dist/
+
+# Local app data
 outputs/
 data/
+
+# IDE
+.idea/
+*.iml
+
+# Logs / OS files
+*.log
+
+# Android / Gradle leftovers from template
+.gradle/
+build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.aab
+*.apk
+output-metadata.json
+deploymentTargetDropDown.xml
+render.experimental.xml
+*.jks
+*.keystore
+google-services.json
+*.hprof
