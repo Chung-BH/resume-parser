@@ -1,0 +1,33 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="annotated-doc" />
+          <option value="annotated-types" />
+          <option value="anyio" />
+          <option value="certifi" />
+          <option value="charset-normalizer" />
+          <option value="click" />
+          <option value="colorama" />
+          <option value="fastapi" />
+          <option value="h11" />
+          <option value="idna" />
+          <option value="lxml" />
+          <option value="pydantic" />
+          <option value="pydantic_core" />
+          <option value="PyPDF2" />
+          <option value="python-docx" />
+          <option value="python-multipart" />
+          <option value="requests" />
+          <option value="starlette" />
+          <option value="typing-inspection" />
+          <option value="typing_extensions" />
+          <option value="urllib3" />
+          <option value="uvicorn" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
