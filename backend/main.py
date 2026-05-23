@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 try:
     from fastapi import FastAPI, File, Form, HTTPException, UploadFile
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import FileResponse
     from fastapi.staticfiles import StaticFiles
+    from starlette.concurrency import run_in_threadpool
 except ImportError as exc:  # pragma: no cover
     raise RuntimeError("FastAPI dependencies are missing. Run: pip install -r requirements.txt") from exc
 
@@ -22,6 +24,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
 UPLOAD_DIR = DATA_DIR / "uploads"
 OUTPUT_DIR = ROOT / "outputs"
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+UPLOAD_CHUNK_SIZE = 1024 * 1024
 
 app = FastAPI(title="Local DOCX Agent MVP")
 app.add_middleware(
@@ -62,9 +66,10 @@ async def process_docx(
     if not file.filename or not file.filename.lower().endswith(".docx"):
         raise HTTPException(status_code=400, detail="DOCX 파일만 업로드할 수 있습니다.")
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    upload_path = UPLOAD_DIR / safe_filename(file.filename)
-    upload_path.write_bytes(await file.read())
-    result = run_pipeline(
+    upload_path = UPLOAD_DIR / f"{uuid4().hex[:8]}_{safe_filename(file.filename)}"
+    await save_upload_file(file, upload_path)
+    result = await run_in_threadpool(
+        run_pipeline,
         template_path=upload_path,
         user_text=user_text,
         output_root=OUTPUT_DIR,
@@ -115,11 +120,27 @@ def ensure_ollama_ready(
         )
 
 
+async def save_upload_file(file: UploadFile, destination: Path) -> None:
+    total = 0
+    with destination.open("wb") as output:
+        while chunk := await file.read(UPLOAD_CHUNK_SIZE):
+            total += len(chunk)
+            if total > MAX_UPLOAD_BYTES:
+                output.close()
+                destination.unlink(missing_ok=True)
+                raise HTTPException(status_code=413, detail="DOCX 파일은 50MB 이하만 업로드할 수 있습니다.")
+            output.write(chunk)
+
+
 @app.get("/api/file")
 def download(path: str) -> FileResponse:
     target = Path(path).resolve()
     root = ROOT.resolve()
-    if not str(target).lower().startswith(str(root).lower()) or not target.exists() or not target.is_file():
+    try:
+        target.relative_to(root)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다.") from None
+    if not target.exists() or not target.is_file():
         raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다.")
     return FileResponse(target)
 

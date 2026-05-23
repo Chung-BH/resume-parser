@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 import shutil
 from typing import Any
+from uuid import uuid4
 
 from .docx_analyzer import analyze_docx
 from .docx_writer import apply_operation_plan
@@ -26,7 +27,7 @@ def run_pipeline(
     use_vision: bool = True,
     use_ai: bool = True,
 ) -> dict[str, Any]:
-    run_dir = Path(output_root) / f"run_{timestamp()}"
+    run_dir = Path(output_root) / f"run_{timestamp()}_{uuid4().hex[:8]}"
     run_dir.mkdir(parents=True, exist_ok=True)
     template = Path(template_path)
     copied_template = run_dir / "template.docx"
