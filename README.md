@@ -1,326 +1,403 @@
-# Local AI DOCX Agent MVP
+# Local AI DOCX Agent
 
-로컬 Ollama 모델을 사용해 DOCX 이력서 양식을 자동 작성하는 MVP입니다.
+DOCX 이력서/입사지원서 양식을 자동으로 채우는 로컬 AI 기반 MVP입니다.
 
-이 프로젝트의 핵심 원칙은 다음과 같습니다.
+사용자가 개인정보와 이력 정보를 직접 입력하면, 시스템이 DOCX 양식의 구조와 렌더링 이미지를 분석해서 어느 칸에 어떤 값을 넣을지 판단합니다. 실제 DOCX 수정은 AI가 직접 하지 않고 Python 코드가 수행합니다.
 
-- AI는 DOCX 파일을 직접 수정하지 않습니다.
-- AI는 사용자 정보 분석, 문서 이미지 분석, 작성 계획 생성을 담당합니다.
-- 실제 DOCX 수정은 Python 코드가 `python-docx`로 수행합니다.
-- 작성 후 DOCX를 다시 이미지로 렌더링하고 비전 모델로 검증합니다.
+## 핵심 방향
 
-즉 AI는 판단을 하고, Python은 실제 파일 작업을 수행합니다.
+- AI는 문서를 직접 수정하지 않습니다.
+- AI는 위치 판단과 검증에 필요한 JSON만 생성합니다.
+- DOCX 파일 수정은 `python-docx`가 수행합니다.
+- 원본/최종 DOCX는 이미지로 렌더링해서 비전 모델이 라벨, 빈칸, 표 구조, 작성 결과를 확인합니다.
+- 기본 사용은 로컬 Ollama 모델입니다.
+- OpenAI GPT 프리셋은 샘플 데이터로 모델 품질을 비교하기 위한 선택 옵션입니다.
 
-## 현재 상태
-
-현재 MVP에서 안정적으로 되는 부분:
+## 현재 기능
 
 - DOCX 업로드
-- 사용자 정보 입력
-- DOCX 이미지 렌더링
-- 결과 미리보기 표시
-- 결과 파일 다운로드
-- 실행별 디버그 산출물 저장
+- 개인정보/학력/경력/자격증/어학/병역 정보 입력 UI
+- 로컬 Ollama 모델 프리셋
+- OpenAI GPT 모델 프리셋
+- DOCX 구조 분석
+- 원본 DOCX 이미지 렌더링
+- 비전 모델 기반 라벨/빈칸 위치 분석
+- 텍스트 모델 기반 작성 위치 결정
+- `python-docx` 기반 DOCX 작성
+- 최종 DOCX/PDF/미리보기 이미지 생성
+- 비전 모델 기반 최종 검증
+- 디버깅용 JSON 파일 저장
 
-현재 불안정한 부분:
+## 처리 흐름
 
-- `qwen2.5vl:3b`의 비전 JSON 생성 안정성
-- `qwen3:8b`의 operation plan 생성 안정성
-- 복잡한 DOCX 표 구조에서 정확한 셀 선택
-
-현재 가장 자주 발생하는 실패는 `operation_plan.json`이 아래처럼 비어 있는 경우입니다.
-
-```json
-{
-  "operations": [],
-  "status": "no_operations"
-}
+```text
+사용자 입력 + DOCX 업로드
+→ 입력 정보 정규화
+→ DOCX 표/셀/입력 후보 분석
+→ 원본 DOCX를 이미지로 렌더링
+→ 비전 모델이 라벨과 빈칸 위치 확인
+→ 텍스트 모델이 입력값을 넣을 칸 결정
+→ Python이 DOCX에 실제 값 작성
+→ 최종 DOCX를 다시 이미지/PDF로 렌더링
+→ 비전 모델이 최종 결과 검증
+→ DOCX/PDF/미리보기 제공
 ```
 
-이 경우 Python writer가 실패한 것이 아니라, AI가 Python에게 줄 작성 명령을 만들지 못한 상태입니다.
+## 모델 선택
 
-## 기술 스택
+UI의 `모델 설정`에서 프리셋을 선택할 수 있습니다.
 
-- FastAPI
-- React
+### 로컬 Ollama
+
+```text
+텍스트 판단 모델: qwen3:8b
+비전 분석/검증 모델: qwen3-vl:4b
+```
+
+개인정보가 들어간 실제 문서는 이 모드를 권장합니다. 데이터가 로컬 PC 안에서 처리됩니다.
+
+### OpenAI GPT
+
+```text
+텍스트 판단 모델: gpt-5-mini
+비전 분석/검증 모델: gpt-5-mini
+```
+
+모델 비교 실험용입니다. OpenAI API를 사용하면 입력 정보와 문서 렌더링 이미지가 OpenAI 서버로 전송됩니다. 실제 개인정보 대신 샘플 데이터를 사용하는 것을 권장합니다.
+
+OpenAI 프리셋을 쓰려면 백엔드 실행 전에 환경변수를 설정합니다.
+
+```powershell
+$env:OPENAI_API_KEY="sk-..."
+```
+
+## 요구 사항
+
+- Windows PowerShell
+- Python 3.10 이상
+- Node.js / npm
 - Ollama
-- `qwen3:8b`
-- `qwen2.5vl:3b`
-- python-docx
-- LibreOffice headless
-- PyMuPDF
+- LibreOffice 또는 Microsoft Word 렌더링 환경
+- 로컬 모델
+  - `qwen3:8b`
+  - `qwen3-vl:4b`
+
+`renderer.py`는 DOCX를 PDF/PNG로 렌더링합니다. 환경에 따라 LibreOffice가 필요할 수 있습니다.
 
 ## 설치
 
-### 1. Ollama 설치
+### 1. 프로젝트 폴더로 이동
 
-Ollama를 설치합니다.
-
-공식 사이트:
-
-```text
-https://ollama.com
+```powershell
+cd C:\Users\HI\Documents\Codex\ai-agent
 ```
 
-설치 후 PowerShell 또는 터미널에서 모델을 다운로드합니다.
+### 2. Python 패키지 설치
+
+```powershell
+pip install -r requirements.txt
+```
+
+### 3. 프론트엔드 패키지 설치
+
+PowerShell 실행 정책 문제를 피하려면 `npm.cmd`를 사용합니다.
+
+```powershell
+cd C:\Users\HI\Documents\Codex\ai-agent\frontend
+npm.cmd install
+```
+
+### 4. Ollama 모델 설치
 
 ```powershell
 ollama pull qwen3:8b
-ollama pull qwen2.5vl:3b
+ollama pull qwen3-vl:4b
 ```
 
-모델이 설치되었는지 확인합니다.
+설치 확인:
 
 ```powershell
 ollama list
 ```
 
-아래 두 모델이 보여야 합니다.
+GPU 사용 여부 확인:
 
-```text
-qwen3:8b
-qwen2.5vl:3b
+```powershell
+ollama ps
 ```
 
-### 2. Ollama 서버 실행
+`PROCESSOR`가 `100% GPU`로 보이면 GPU를 사용 중입니다.
+
+## 실행 방법
+
+개발 중에는 백엔드와 프론트엔드를 따로 실행하는 방식을 권장합니다.
+
+### 1. 백엔드 실행
+
+새 PowerShell에서:
+
+```powershell
+cd C:\Users\HI\Documents\Codex\ai-agent
+python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+OpenAI GPT 프리셋도 테스트하려면 백엔드 실행 전에:
+
+```powershell
+$env:OPENAI_API_KEY="sk-..."
+python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+### 2. 프론트엔드 실행
+
+다른 PowerShell에서:
+
+```powershell
+cd C:\Users\HI\Documents\Codex\ai-agent\frontend
+npm.cmd run dev
+```
+
+브라우저에서 접속:
+
+```text
+http://127.0.0.1:5173
+```
+
+### 3. Ollama 서버
 
 대부분의 경우 Ollama는 백그라운드에서 자동 실행됩니다.
 
-수동으로 실행해야 한다면 새 터미널에서 아래 명령어를 실행합니다.
+수동 실행이 필요하면 새 PowerShell에서:
 
 ```powershell
 ollama serve
 ```
 
-이 터미널은 Ollama 서버 창이므로, 프로젝트를 실행하는 동안 닫지 않습니다.
-
-참고: 모델 저장 위치를 기본 경로가 아닌 다른 드라이브로 바꾸고 싶은 경우에만 환경 변수를 설정합니다.
+모델 저장 위치를 D 드라이브로 쓰는 경우:
 
 ```powershell
 $env:OLLAMA_MODELS="D:\OllamaModels"
 ollama serve
 ```
 
-일반 사용자는 이 설정이 필요 없습니다.
+## 단일 서버로 실행
 
-### 3. Python 패키지 설치
-
-프로젝트 폴더에서 실행합니다.
+프론트엔드를 빌드한 뒤 FastAPI 하나로 서빙할 수도 있습니다.
 
 ```powershell
-cd <프로젝트_폴더>
-pip install -r requirements.txt
+cd C:\Users\HI\Documents\Codex\ai-agent\frontend
+npm.cmd run build
 ```
 
-### 4. 프론트엔드 패키지 설치
-
 ```powershell
-cd <프로젝트_폴더>\frontend
-npm install
-```
-
-## 실행 방법
-
-### 방법 A: FastAPI 서버 하나로 실행
-
-프론트엔드를 먼저 빌드합니다.
-
-```powershell
-cd <프로젝트_폴더>\frontend
-npm run build
-```
-
-그 다음 FastAPI 서버를 실행합니다.
-
-```powershell
-cd <프로젝트_폴더>
+cd C:\Users\HI\Documents\Codex\ai-agent
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
-브라우저에서 접속합니다.
+접속:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-### 방법 B: 개발 모드로 실행
+## 사용 방법
 
-백엔드 실행:
+1. 브라우저에서 앱을 엽니다.
+2. `모델 설정`에서 `로컬 Ollama` 또는 `OpenAI GPT`를 선택합니다.
+3. DOCX 양식을 업로드합니다.
+4. 개인정보, 학력, 경력, 자격증, 어학, 병역 정보를 입력합니다.
+5. `자동 작성 실행`을 누릅니다.
+6. 결과 미리보기를 확인합니다.
+7. 필요한 경우 DOCX 또는 PDF를 다운로드합니다.
 
-```powershell
-cd <프로젝트_폴더>
-python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
-```
+## 보안과 개인정보
 
-프론트엔드 실행:
+### 로컬 Ollama 사용 시
 
-```powershell
-cd <프로젝트_폴더>\frontend
-npm run dev
-```
+입력 정보와 렌더링 이미지는 로컬 PC에서 처리됩니다. 실제 개인정보가 들어간 문서는 이 방식을 권장합니다.
 
-브라우저에서 접속합니다.
+### OpenAI GPT 사용 시
 
-```text
-http://127.0.0.1:5173
-```
+OpenAI API로 다음 데이터가 전송될 수 있습니다.
 
-## 기본 실행 순서
+- 입력 폼의 개인정보
+- DOCX 구조 분석 일부
+- 원본 DOCX 렌더링 이미지와 crop 이미지
+- 최종 작성 결과 이미지
+- 검증 프롬프트와 기대 필드 값
 
-1. Ollama 모델 다운로드
-2. Ollama 서버 실행
-3. Python 패키지 설치
-4. 프론트엔드 패키지 설치
-5. 프론트엔드 빌드
-6. FastAPI 서버 실행
-7. 브라우저 접속
-8. DOCX 업로드 후 자동 작성 실행
+따라서 GPT 프리셋은 샘플 데이터로 비교 실험할 때 사용하는 것을 권장합니다.
 
-명령어만 모으면 다음과 같습니다.
+### 다운로드 API 제한
 
-```powershell
-ollama pull qwen3:8b
-ollama pull qwen2.5vl:3b
-ollama serve
-```
+`/api/file`은 `outputs` 폴더 안의 결과 파일만 내려줍니다.
 
-다른 터미널:
-
-```powershell
-cd <프로젝트_폴더>
-pip install -r requirements.txt
-cd frontend
-npm install
-npm run build
-cd ..
-python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
-```
-
-브라우저:
+허용 확장자:
 
 ```text
-http://127.0.0.1:8000
+.docx
+.pdf
+.png
+.jpg
+.jpeg
 ```
+
+코드 파일, 업로드 원본, 프로젝트 내부 파일은 다운로드할 수 없습니다.
+
+### API 응답 제한
+
+프론트엔드 응답에는 화면에 필요한 값만 내려줍니다.
+
+포함:
+
+- `logs`
+- `warnings`
+- `verification_report`
+- `final_docx_url`
+- `final_pdf_url`
+- `preview_urls`
+
+디버깅용 내부 JSON은 브라우저 응답으로 보내지 않고 `outputs/run_...` 폴더에만 저장합니다.
 
 ## 프로젝트 구조
 
 ```text
 ai-agent/
   backend/
-    main.py                FastAPI 진입점
-    pipeline.py            전체 처리 흐름
-    ollama_client.py       Ollama API 호출
-    profile_parser.py      사용자 정보 텍스트를 profile JSON으로 변환
-    docx_analyzer.py       DOCX 표/셀/입력 후보 분석
-    vision_analyzer.py     렌더링 이미지 기반 비전 분석
-    operation_planner.py   qwen3 기반 operation plan 생성
-    docx_writer.py         operation plan을 DOCX에 적용
-    renderer.py            DOCX를 PDF/PNG로 렌더링
-    result_verifier.py     최종 결과 이미지 검증
-    utils.py               공통 유틸
+    main.py              FastAPI 엔트리포인트
+    pipeline.py          전체 처리 파이프라인
+    ai_client.py         Ollama/OpenAI 모델 라우터
+    ollama_client.py     Ollama API 호출
+    profile_parser.py    입력 텍스트/profile JSON 정규화
+    docx_analyzer.py     DOCX 표/셀/입력 후보 분석
+    vision_analyzer.py   렌더링 이미지 기반 비전 분석
+    operation_planner.py 입력값을 넣을 DOCX 위치 결정
+    record_planner.py    학력/경력/자격증/어학/병역 반복 행 계획
+    docx_writer.py       operation plan을 DOCX에 적용
+    renderer.py          DOCX를 PDF/PNG로 렌더링
+    result_verifier.py   최종 렌더링 이미지 검증
+    schemas.py           profile/operation schema
+    utils.py             공통 유틸
 
   frontend/
     src/
-      main.jsx             React UI
-      style.css            UI 스타일
-    dist/                  빌드 결과물
+      main.jsx           React UI
+      style.css          스타일
+    dist/                빌드 결과
 
-  outputs/
-    run_YYYYMMDD_HHMMSS/   실행별 산출물
+  tests/
+    test_record_planner.py
 
   data/
-    uploads/               업로드된 DOCX 임시 저장
+    uploads/             업로드된 DOCX 임시 저장
+
+  outputs/
+    run_.../             실행별 결과물
 
   requirements.txt
   README.md
 ```
 
-## 처리 흐름
+## 주요 출력물
+
+실행할 때마다 `outputs` 아래에 실행 폴더가 생성됩니다.
 
 ```text
-DOCX 업로드
-→ 사용자 정보 입력
-→ qwen3:8b로 profile.json 생성
-→ Python으로 DOCX 구조 분석
-→ DOCX를 이미지로 렌더링
-→ qwen2.5vl:3b로 이미지 기반 필드 위치 분석
-→ qwen3:8b로 operation_plan.json 생성
-→ Python이 operation plan을 DOCX에 적용
-→ 수정된 DOCX를 다시 이미지로 렌더링
-→ qwen2.5vl:3b로 최종 검증
-```
-
-## 산출물
-
-실행할 때마다 아래 폴더가 생성됩니다.
-
-```text
-outputs/run_YYYYMMDD_HHMMSS/
+outputs/run_YYYYMMDD_HHMMSS_xxxxxxxx/
 ```
 
 주요 파일:
 
-- `profile.json`
-- `layout.json`
-- `original_render.json`
-- `vision_fields.json`
-- `operation_plan.json`
-- `write_report.json`
-- `verification_report.json`
-- `final.docx`
-- `final_render.json`
-- `result.json`
-
-문제가 생기면 먼저 아래 파일을 확인합니다.
-
 ```text
+template.docx
+profile.json
+layout.json
+original_render.json
 vision_fields.json
 operation_plan.json
 write_report.json
 verification_report.json
+final.docx
+final_render.json
+result.json
+```
+
+문제가 생겼을 때 먼저 볼 파일:
+
+- `vision_fields.json`
+- `operation_plan.json`
+- `write_report.json`
+- `verification_report.json`
+
+## 테스트
+
+백엔드 문법 확인:
+
+```powershell
+cd C:\Users\HI\Documents\Codex\ai-agent
+python -m compileall -q backend
+```
+
+record planner 테스트:
+
+```powershell
+python -m unittest tests.test_record_planner
+```
+
+프론트엔드 빌드:
+
+```powershell
+cd C:\Users\HI\Documents\Codex\ai-agent\frontend
+npm.cmd run build
 ```
 
 ## 자주 발생하는 문제
 
-### 1. Ollama 연결 실패
+### PowerShell에서 npm 실행 오류
 
-에러 예시:
-
-```text
-WinError 10061
-```
-
-의미:
+오류 예:
 
 ```text
-FastAPI가 Ollama 서버에 연결하지 못했습니다.
+npm : 이 시스템에서 스크립트를 실행할 수 없으므로 ...
 ```
 
 해결:
 
 ```powershell
-ollama serve
+npm.cmd run dev
+npm.cmd run build
 ```
 
-다른 터미널에서 확인:
+### Ollama 서버 연결 실패
+
+확인:
 
 ```powershell
 ollama list
 ```
 
-### 2. 비전 모델 timeout
+수동 실행:
 
-에러 예시:
-
-```text
-qwen2.5vl:3b vision JSON generation failed: timed out
+```powershell
+ollama serve
 ```
 
-의미:
+### Ollama 모델 없음
+
+오류 예:
 
 ```text
-비전 모델이 이미지 분석을 제한 시간 안에 끝내지 못했습니다.
+Ollama에 필요한 모델이 없습니다
 ```
+
+해결:
+
+```powershell
+ollama pull qwen3:8b
+ollama pull qwen3-vl:4b
+```
+
+### 비전 모델이 너무 느림
 
 확인:
 
@@ -328,54 +405,46 @@ qwen2.5vl:3b vision JSON generation failed: timed out
 ollama ps
 ```
 
-`PROCESSOR`가 `100% CPU`로 표시되면 GPU 대신 CPU로 실행 중일 수 있고, 매우 느릴 수 있습니다.
+`PROCESSOR`가 `100% CPU`이면 GPU가 아니라 CPU로 돌고 있을 수 있습니다.
 
-### 3. 비전 JSON 파싱 실패
+### OpenAI GPT 프리셋에서 API Key 오류
 
-에러 예시:
+백엔드 실행 전에 환경변수를 설정합니다.
+
+```powershell
+$env:OPENAI_API_KEY="sk-..."
+python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+### 검증 confidence가 낮음
+
+가능한 원인:
+
+- 비전 모델이 최종 이미지를 제대로 읽지 못함
+- 값은 들어갔지만 위치 검증이 불확실함
+- 일부 필드가 작성되지 않음
+- 표가 복잡해서 행/열 판단이 흔들림
+
+확인할 파일:
 
 ```text
-Expecting ',' delimiter
+outputs/run_.../operation_plan.json
+outputs/run_.../write_report.json
+outputs/run_.../verification_report.json
 ```
 
-의미:
+## 현재 설계상 한계
 
-```text
-비전 모델이 JSON처럼 보이는 응답을 했지만 문법이 깨졌습니다.
-```
+- 모든 DOCX 양식을 완벽하게 처리하지는 못합니다.
+- 복잡한 병합 셀, 여러 페이지, 표가 중첩된 양식에서는 위치 판단이 흔들릴 수 있습니다.
+- 현재 최종 검증은 속도를 위해 주로 첫 페이지 중심입니다.
+- OpenAI GPT 비교는 개인정보가 없는 샘플 데이터 사용을 권장합니다.
+- AI가 위치를 판단하지만, 실제 작성은 항상 Python의 검증된 operation만 적용합니다.
 
-이 경우 `vision_fields.json`이 정상 생성되지 않고, 이후 `operation_plan.json`도 비어 있을 수 있습니다.
+## 개발 메모
 
-### 4. operation plan이 0건인 경우
-
-파일:
-
-```text
-operation_plan.json
-```
-
-예시:
-
-```json
-{
-  "operations": [],
-  "status": "no_operations"
-}
-```
-
-의미:
-
-```text
-AI가 Python writer에게 줄 작성 작업을 만들지 못했습니다.
-```
-
-이 상태에서는 `final.docx`가 채워지지 않습니다.
-
-## 설계 원칙
-
-- AI가 DOCX 파일을 직접 수정하지 않습니다.
-- AI는 JSON operation plan만 생성합니다.
-- Python만 실제 DOCX를 수정합니다.
-- 특정 양식에만 맞춘 rule 기반 하드코딩을 늘리는 방향은 지양합니다.
-- 다만 렌더링, 이미지 crop, 후보 추출 같은 보조 처리는 Python이 수행할 수 있습니다.
-
+- 일반 사용자 UI에는 디버그 JSON을 표시하지 않습니다.
+- 디버그 JSON은 `outputs/run_...` 폴더에 저장됩니다.
+- 반복 섹션은 `record_planner.py`가 행/열 후보를 좁히고, AI가 같은 record group 안에서 최종 선택합니다.
+- 어학/컴퓨터처럼 한 표 안에 여러 섹션이 붙어 있는 경우, 컴퓨터 칸을 어학 칸으로 착각하지 않도록 후보 필터링을 둡니다.
+- 자격증/경력/어학/병역처럼 행 단위 데이터는 같은 record group 안에서만 작성하도록 제한합니다.

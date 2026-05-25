@@ -6,38 +6,131 @@ import {
   Download,
   FileText,
   Image as ImageIcon,
+  Plus,
   Play,
   Square,
+  Trash2,
 } from "lucide-react";
 import "./style.css";
 
-const sampleText = `이름: 김철수
-영문 이름: Cheolsu Kim
-생년월일: 1990-02-23
-성별: 남
-연락처: 010-1234-5678
-이메일: asd123@naver.com
-주소: 서울특별시 노원구 화랑로 815
-지원직무: 백엔드 개발자
+const emptyProfile = {
+  name: "",
+  english_name: "",
+  birth_date: "",
+  gender: "",
+  phone: "",
+  email: "",
+  address: "",
+  job: "",
+  education: [{ period: "", school: "", major: "" }],
+  careers: [{ period: "", company: "", position: "", role: "" }],
+  certificates: [{ name: "", issuer: "", date: "" }],
+  languages: [{ language: "", ability: "", test: "", score: "" }],
+  military: [{ status: "", branch: "", service_type: "", rank: "", period: "", exemption_reason: "" }],
+  extra: { raw: "" },
+};
 
-학력
-- 2006-03 ~ 2009-02 / 일육고등학교 / 인문계
-- 2009-03 ~ 2015-02 / 일육대학교 / 컴퓨터공학과
+const sampleProfile = {
+  ...emptyProfile,
+  name: "김철수",
+  english_name: "Cheolsu Kim",
+  birth_date: "1990-02-23",
+  gender: "남",
+  phone: "010-1234-5678",
+  email: "asd123@naver.com",
+  address: "서울특별시 노원구 화랑로 815",
+  job: "백엔드 개발자",
+  education: [
+    { period: "2006-03 ~ 2009-02", school: "일육고등학교", major: "인문계" },
+    { period: "2009-03 ~ 2015-02", school: "일육대학교", major: "컴퓨터공학과" },
+  ],
+  careers: [{ period: "2015-03 ~ 2019-06", company: "넥스트인터", position: "백엔드 개발자", role: "정산 API 개발" }],
+  certificates: [
+    { name: "정보처리기사", issuer: "한국산업인력공단", date: "2023.06" },
+    { name: "SQLD", issuer: "한국데이터산업진흥원", date: "2022.12" },
+  ],
+  languages: [{ language: "영어", ability: "상", test: "TOEIC", score: "900" }],
+  military: [{ status: "군필", branch: "육군", service_type: "현역", rank: "병장", period: "2010-03 ~ 2012-01", exemption_reason: "" }],
+  extra: { raw: "컴퓨터 활용능력: MS-WORD 상, MS-EXCEL 중\n보훈여부: 대상 아님" },
+};
 
-경력
-- 2015-03 ~ 2019-06 / 넥스트인터 / 백엔드 개발자 / 정산 API 개발
+const sectionConfigs = {
+  education: {
+    title: "학력",
+    empty: { period: "", school: "", major: "" },
+    fields: [
+      ["period", "기간"],
+      ["school", "학교명"],
+      ["major", "전공"],
+    ],
+  },
+  careers: {
+    title: "경력",
+    empty: { period: "", company: "", position: "", role: "" },
+    fields: [
+      ["period", "근무기간"],
+      ["company", "근무처"],
+      ["position", "직위"],
+      ["role", "직무"],
+    ],
+  },
+  certificates: {
+    title: "자격증",
+    empty: { name: "", issuer: "", date: "" },
+    fields: [
+      ["name", "자격증명"],
+      ["issuer", "발행처"],
+      ["date", "취득일"],
+    ],
+  },
+  languages: {
+    title: "어학",
+    empty: { language: "", ability: "", test: "", score: "" },
+    fields: [
+      ["language", "외국어명"],
+      ["ability", "활용능력"],
+      ["test", "테스트명"],
+      ["score", "공인점수"],
+    ],
+  },
+  military: {
+    title: "병역",
+    empty: { status: "", branch: "", service_type: "", rank: "", period: "", exemption_reason: "" },
+    fields: [
+      ["status", "구분"],
+      ["branch", "군별"],
+      ["service_type", "역종"],
+      ["rank", "계급"],
+      ["period", "복무기간"],
+      ["exemption_reason", "면제사유"],
+    ],
+  },
+};
 
-자격증
-- 정보처리기사 / 한국산업인력공단 / 2023.06
-- SQLD / 한국데이터산업진흥원 / 2022.12`;
+const modelPresets = [
+  {
+    id: "ollama",
+    label: "로컬 Ollama",
+    description: "qwen3 + qwen3-vl",
+    textModel: "qwen3:8b",
+    visionModel: "qwen3-vl:4b",
+  },
+  {
+    id: "openai",
+    label: "OpenAI GPT",
+    description: "OPENAI_API_KEY 필요",
+    textModel: "gpt-5-mini",
+    visionModel: "gpt-5-mini",
+  },
+];
 
 function App() {
   const abortRef = useRef(null);
   const [file, setFile] = useState(null);
-  const [userText, setUserText] = useState(sampleText);
+  const [profile, setProfile] = useState(sampleProfile);
   const [ollamaUrl, setOllamaUrl] = useState("http://localhost:11434");
   const [textModel, setTextModel] = useState("qwen3:8b");
-  const [visionModel, setVisionModel] = useState("qwen2.5vl:3b");
+  const [visionModel, setVisionModel] = useState("qwen3-vl:4b");
   const [useAi, setUseAi] = useState(true);
   const [useVision, setUseVision] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -58,7 +151,8 @@ function App() {
 
     const form = new FormData();
     form.append("file", file);
-    form.append("user_text", userText);
+    form.append("user_text", profileToText(profile));
+    form.append("profile_json", JSON.stringify(compactProfile(profile)));
     form.append("ollama_url", ollamaUrl);
     form.append("text_model", textModel);
     form.append("vision_model", visionModel);
@@ -78,7 +172,7 @@ function App() {
     } catch (err) {
       setElapsedMs(Math.round(performance.now() - startedAt));
       if (err.name === "AbortError") {
-        setError("요청을 중단했습니다. 서버에서 진행 중이던 작업은 곧 정리됩니다.");
+        setError("요청을 중단했습니다. 서버에서 진행 중인 작업은 곧 정리됩니다.");
       } else {
         setError(err.message);
       }
@@ -92,15 +186,20 @@ function App() {
     abortRef.current?.abort();
   }
 
+  function applyModelPreset(preset) {
+    setTextModel(preset.textModel);
+    setVisionModel(preset.visionModel);
+  }
+
+  const activePreset = modelPresets.find((preset) => preset.textModel === textModel && preset.visionModel === visionModel)?.id || "custom";
+
   return (
     <main className="app-shell">
       <header className="topbar">
         <div>
           <p className="eyebrow">Local AI DOCX workflow</p>
           <h1>DOCX 자동 작성 MVP</h1>
-          <p className="subtitle">
-            AI는 JSON 작업 계획만 만들고, 실제 DOCX 수정은 Python이 수행합니다.
-          </p>
+          <p className="subtitle">개인정보는 직접 입력하고, AI는 문서에서 넣을 위치를 판단합니다.</p>
         </div>
         <div className="topbar-actions">
           {loading && (
@@ -121,7 +220,7 @@ function App() {
           <span className="spinner" />
           <div>
             <strong>문서를 처리하고 있습니다.</strong>
-            <span>qwen2.5vl 검증은 오래 걸릴 수 있습니다. 필요하면 중단을 누르세요.</span>
+            <span>비전 모델 검증은 오래 걸릴 수 있습니다. 필요하면 중단을 누르세요.</span>
           </div>
         </section>
       )}
@@ -129,37 +228,138 @@ function App() {
       <section className="workspace">
         <aside className="side-panel">
           <Panel title="모델 설정">
+            <ModelPresetButtons activePreset={activePreset} onSelect={applyModelPreset} />
             <Input label="Ollama URL" value={ollamaUrl} onChange={setOllamaUrl} />
-            <Input label="텍스트/추론 모델" value={textModel} onChange={setTextModel} />
+            <Input label="텍스트 판단 모델" value={textModel} onChange={setTextModel} />
             <Input label="비전 분석/검증 모델" value={visionModel} onChange={setVisionModel} />
-            <Toggle label="qwen3 사용" checked={useAi} onChange={setUseAi} />
-            <Toggle label="qwen2.5vl 이미지 분석/검증 사용" checked={useVision} onChange={setUseVision} />
+            <Toggle label="AI 위치 판단 사용" checked={useAi} onChange={setUseAi} />
+            <Toggle label="비전 이미지 분석/검증 사용" checked={useVision} onChange={setUseVision} />
           </Panel>
 
           <Panel title="DOCX 업로드">
             <label className={`dropzone ${file ? "has-file" : ""}`}>
               <FileText size={28} />
               <span>{file ? file.name : "DOCX 파일 선택"}</span>
-              <small>{file ? "업로드 준비 완료" : "이력서 양식 .docx를 선택하세요"}</small>
-              <input type="file" accept=".docx" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              <small>{file ? "업로드 준비 완료" : "입력할 이력서 양식 .docx를 선택하세요"}</small>
+              <input type="file" accept=".docx" onChange={(event) => setFile(event.target.files?.[0] || null)} />
             </label>
           </Panel>
         </aside>
 
         <section className="main-panel">
-          <Panel title="사용자 정보">
-            <textarea
-              className="profile-textarea"
-              value={userText}
-              onChange={(e) => setUserText(e.target.value)}
-            />
-          </Panel>
+          <ProfileForm profile={profile} setProfile={setProfile} />
 
           {error && <div className="notice error">{error}</div>}
           {result && <ResultView result={result} elapsedMs={elapsedMs} />}
         </section>
       </section>
     </main>
+  );
+}
+
+function ModelPresetButtons({ activePreset, onSelect }) {
+  return (
+    <div className="model-presets">
+      {modelPresets.map((preset) => (
+        <button
+          key={preset.id}
+          className={`preset-btn ${activePreset === preset.id ? "active" : ""}`}
+          type="button"
+          onClick={() => onSelect(preset)}
+        >
+          <strong>{preset.label}</strong>
+          <span>{preset.description}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ProfileForm({ profile, setProfile }) {
+  function update(key, value) {
+    setProfile((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateExtra(value) {
+    setProfile((current) => ({ ...current, extra: { ...current.extra, raw: value } }));
+  }
+
+  return (
+    <div className="profile-form">
+      <Panel title="인적사항">
+        <div className="form-grid two">
+          <Input label="성명" value={profile.name} onChange={(value) => update("name", value)} />
+          <Input label="영문 이름" value={profile.english_name} onChange={(value) => update("english_name", value)} />
+          <Input label="생년월일" value={profile.birth_date} onChange={(value) => update("birth_date", value)} />
+          <Input label="성별" value={profile.gender} onChange={(value) => update("gender", value)} />
+          <Input label="연락처" value={profile.phone} onChange={(value) => update("phone", value)} />
+          <Input label="이메일" value={profile.email} onChange={(value) => update("email", value)} />
+          <Input label="주소" value={profile.address} onChange={(value) => update("address", value)} wide />
+          <Input label="지원직무" value={profile.job} onChange={(value) => update("job", value)} />
+        </div>
+      </Panel>
+
+      {Object.entries(sectionConfigs).map(([key, config]) => (
+        <RepeatingSection key={key} sectionKey={key} config={config} profile={profile} setProfile={setProfile} />
+      ))}
+
+      <Panel title="기타 정보">
+        <label className="field">
+          <span>위 항목에 없는 내용</span>
+          <textarea
+            className="extra-textarea"
+            value={profile.extra?.raw || ""}
+            onChange={(event) => updateExtra(event.target.value)}
+            placeholder="예: 보훈여부, 컴퓨터 활용능력, 수상, 연수, 봉사활동, 자기소개 등"
+          />
+        </label>
+      </Panel>
+    </div>
+  );
+}
+
+function RepeatingSection({ sectionKey, config, profile, setProfile }) {
+  const rows = profile[sectionKey] || [];
+
+  function updateRow(index, key, value) {
+    setProfile((current) => ({
+      ...current,
+      [sectionKey]: current[sectionKey].map((row, rowIndex) => (rowIndex === index ? { ...row, [key]: value } : row)),
+    }));
+  }
+
+  function addRow() {
+    setProfile((current) => ({ ...current, [sectionKey]: [...current[sectionKey], { ...config.empty }] }));
+  }
+
+  function removeRow(index) {
+    setProfile((current) => ({
+      ...current,
+      [sectionKey]: current[sectionKey].filter((_, rowIndex) => rowIndex !== index),
+    }));
+  }
+
+  return (
+    <Panel title={config.title}>
+      <div className="rows-stack">
+        {rows.map((row, index) => (
+          <div className="entry-row" key={`${sectionKey}-${index}`}>
+            <div className={`form-grid compact columns-${Math.min(config.fields.length, 4)}`}>
+              {config.fields.map(([key, label]) => (
+                <Input key={key} label={label} value={row[key] || ""} onChange={(value) => updateRow(index, key, value)} />
+              ))}
+            </div>
+            <button className="icon-btn" type="button" onClick={() => removeRow(index)} title={`${config.title} 행 삭제`}>
+              <Trash2 size={16} />
+            </button>
+          </div>
+        ))}
+      </div>
+      <button className="btn secondary add-row" type="button" onClick={addRow}>
+        <Plus size={15} />
+        {config.title} 추가
+      </button>
+    </Panel>
   );
 }
 
@@ -192,12 +392,12 @@ function ResultView({ result, elapsedMs }) {
         )}
       </Panel>
 
-      <Details title="자동 검증 리포트 JSON" value={result.verification_report} />
-      <Details title="Operation Plan JSON" value={result.operation_plan} />
-
-      <Panel title="처리 로그">
-        <pre className="log-box">{(result.logs || []).join("\n")}</pre>
-      </Panel>
+      {result.logs?.length > 0 && (
+        <details className="panel details-panel process-details">
+          <summary>처리 단계</summary>
+          <pre className="log-box">{result.logs.join("\n")}</pre>
+        </details>
+      )}
     </div>
   );
 }
@@ -233,20 +433,11 @@ function Panel({ title, children }) {
   );
 }
 
-function Details({ title, value }) {
+function Input({ label, value, onChange, wide = false, type = "text", placeholder = "" }) {
   return (
-    <details className="panel details-panel">
-      <summary>{title}</summary>
-      <pre className="json-box">{JSON.stringify(value, null, 2)}</pre>
-    </details>
-  );
-}
-
-function Input({ label, value, onChange }) {
-  return (
-    <label className="field">
+    <label className={`field ${wide ? "wide" : ""}`}>
       <span>{label}</span>
-      <input value={value} onChange={(e) => onChange(e.target.value)} />
+      <input type={type} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
 }
@@ -254,7 +445,7 @@ function Input({ label, value, onChange }) {
 function Toggle({ label, checked, onChange }) {
   return (
     <label className="toggle">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
       <span>{label}</span>
     </label>
   );
@@ -267,6 +458,36 @@ function DownloadLink({ href, label }) {
       {label}
     </a>
   );
+}
+
+function compactProfile(profile) {
+  const compact = { ...profile, extra: { raw: profile.extra?.raw || "" } };
+  for (const key of Object.keys(sectionConfigs)) {
+    compact[key] = (profile[key] || []).filter((row) => Object.values(row).some((value) => String(value || "").trim()));
+  }
+  return compact;
+}
+
+function profileToText(profile) {
+  const p = compactProfile(profile);
+  const lines = [
+    `이름: ${p.name}`,
+    `영문 이름: ${p.english_name}`,
+    `생년월일: ${p.birth_date}`,
+    `성별: ${p.gender}`,
+    `연락처: ${p.phone}`,
+    `이메일: ${p.email}`,
+    `주소: ${p.address}`,
+    `지원직무: ${p.job}`,
+  ];
+  for (const [key, config] of Object.entries(sectionConfigs)) {
+    lines.push("", config.title);
+    for (const row of p[key]) {
+      lines.push(`- ${config.fields.map(([field]) => row[field]).filter(Boolean).join(" / ")}`);
+    }
+  }
+  if (p.extra?.raw) lines.push("", "기타 정보", p.extra.raw);
+  return lines.join("\n");
 }
 
 function formatElapsed(ms) {

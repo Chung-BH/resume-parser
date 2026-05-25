@@ -11,6 +11,9 @@ from typing import Any
 from urllib.request import Request, urlopen
 
 
+REPAIR_TEXT_LIMIT = 12000
+
+
 class OllamaError(RuntimeError):
     """Raised when Ollama cannot return usable JSON."""
 
@@ -32,7 +35,11 @@ def generate_json(prompt: str, model: str, ollama_url: str, timeout: int = 120, 
                 },
                 timeout,
             )
-            return extract_json(str(payload.get("response") or ""))
+            text = response_text(payload)
+            try:
+                return extract_json(text)
+            except json.JSONDecodeError:
+                return repair_json(text, model, ollama_url, timeout)
         except Exception as exc:  # noqa: BLE001
             last_error = exc
             current = prompt + "\n\nReturn one valid JSON object only. No markdown. No explanation."
@@ -69,7 +76,11 @@ def generate_json_with_images(
                 request_payload,
                 timeout,
             )
-            return extract_json(str(payload.get("response") or ""))
+            text = response_text(payload)
+            try:
+                return extract_json(text)
+            except json.JSONDecodeError:
+                return repair_json(text, model, ollama_url, timeout)
         except Exception as exc:  # noqa: BLE001
             last_error = exc
             current = prompt + "\n\nReturn one valid JSON object only. No markdown. No explanation."
@@ -123,9 +134,46 @@ def extract_json(text: str) -> Any:
     return json.loads(text[start : end + 1])
 
 
+def repair_json(text: str, model: str, ollama_url: str, timeout: int) -> Any:
+    broken = strip_thinking(text).strip()
+    if len(broken) > REPAIR_TEXT_LIMIT:
+        broken = broken[: REPAIR_TEXT_LIMIT // 2] + "\n...\n" + broken[-REPAIR_TEXT_LIMIT // 2 :]
+    prompt = f"""
+Return only one valid JSON object or array. No markdown. No explanation.
+
+Fix the JSON syntax in the broken model output below.
+Do not add new fields.
+Do not remove meaningful values.
+Preserve Korean text exactly when possible.
+
+BROKEN_OUTPUT:
+{broken}
+"""
+    payload = post_json(
+        f"{ollama_url.rstrip('/')}/api/generate",
+        {
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "format": "json",
+            "think": False,
+            "options": {"temperature": 0},
+        },
+        timeout,
+    )
+    return extract_json(response_text(payload))
+
+
 def strip_thinking(text: str) -> str:
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.IGNORECASE | re.DOTALL)
     return text.strip()
+
+
+def response_text(payload: dict[str, Any]) -> str:
+    response = str(payload.get("response") or "").strip()
+    if response:
+        return response
+    return str(payload.get("thinking") or "").strip()
 
 
 def post_json(url: str, payload: dict[str, Any], timeout: int) -> dict[str, Any]:

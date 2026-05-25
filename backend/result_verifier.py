@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .ollama_client import OllamaError, generate_json_with_images
+from .ai_client import OllamaError, generate_json_with_images
 from .operation_planner import profile_to_fields
 from .vision_analyzer import prepare_vision_images, select_pages
 
@@ -15,10 +15,11 @@ CONFIDENCE_THRESHOLD = 0.72
 
 
 class ResultVerifier:
-    def __init__(self, model: str, ollama_url: str, enabled: bool = True) -> None:
+    def __init__(self, model: str, ollama_url: str, enabled: bool = True, openai_api_key: str | None = None) -> None:
         self.model = model
         self.ollama_url = ollama_url
         self.enabled = enabled
+        self.openai_api_key = openai_api_key
 
     def verify(
         self,
@@ -59,7 +60,8 @@ class ResultVerifier:
                 timeout=150,
                 retries=0,
                 max_side=640,
-                num_predict=650,
+                num_predict=1800,
+                openai_api_key=self.openai_api_key,
             )
         except OllamaError as exc:
             return written_but_unverified_report(expected_fields, written_fields, pngs, str(exc))
@@ -124,7 +126,7 @@ def written_but_unverified_report(
                 "field": field,
                 "expected_value": item["value"],
                 "status": "uncertain" if matched else "missing",
-                "visual_evidence": "DOCX write operation exists, but qwen2.5vl visual verification failed." if matched else "No write operation matched this field.",
+                "visual_evidence": "DOCX write operation exists, but vision verification failed." if matched else "No write operation matched this field.",
                 "confidence": 0.45 if matched else 0.0,
             }
         )
@@ -134,7 +136,7 @@ def written_but_unverified_report(
         "overall_confidence": 0.35 if written_fields else 0.0,
         "confidence_threshold": CONFIDENCE_THRESHOLD,
         "needs_user_confirmation": True,
-        "summary": "DOCX 작성은 수행됐지만 qwen2.5vl 자동 검증이 실패했습니다. 최종 미리보기에서 사용자 확인이 필요합니다.",
+        "summary": "DOCX 작성은 수행됐지만 비전 모델 자동 검증이 실패했습니다. 최종 미리보기에서 사용자 확인이 필요합니다.",
         "field_checks": field_checks,
         "layout_checks": {
             "cells_intact": True,
@@ -149,7 +151,7 @@ def written_but_unverified_report(
                 "type": "vision_error",
                 "field": "",
                 "severity": "medium",
-                "message": f"qwen2.5vl 자동 검증 실패: {error}",
+                "message": f"비전 모델 자동 검증 실패: {error}",
                 "suggested_user_action": "최종 미리보기와 DOCX 파일을 직접 확인하세요.",
             }
         ],

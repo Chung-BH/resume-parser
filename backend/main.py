@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -15,7 +17,7 @@ try:
 except ImportError as exc:  # pragma: no cover
     raise RuntimeError("FastAPI dependencies are missing. Run: pip install -r requirements.txt") from exc
 
-from .ollama_client import list_models
+from .ai_client import is_openai_model, list_models
 from .pipeline import run_pipeline
 from .utils import safe_filename
 
@@ -26,6 +28,7 @@ UPLOAD_DIR = DATA_DIR / "uploads"
 OUTPUT_DIR = ROOT / "outputs"
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 UPLOAD_CHUNK_SIZE = 1024 * 1024
+ALLOWED_DOWNLOAD_SUFFIXES = {".docx", ".pdf", ".png", ".jpg", ".jpeg"}
 
 app = FastAPI(title="Local DOCX Agent MVP")
 app.add_middleware(
@@ -51,20 +54,22 @@ def models(ollama_url: str = "http://localhost:11434") -> dict[str, Any]:
 async def process_docx(
     file: UploadFile = File(...),
     user_text: str = Form(...),
+    profile_json: str = Form(""),
     ollama_url: str = Form("http://localhost:11434"),
+    openai_api_key: str = Form(""),
     text_model: str = Form("qwen3:8b"),
-    vision_model: str = Form("qwen2.5vl:3b"),
+    vision_model: str = Form("qwen3-vl:4b"),
     use_ai: bool = Form(True),
     use_vision: bool = Form(True),
 ) -> dict[str, Any]:
     text_model = normalize_model_name(text_model, default="qwen3:8b")
-    vision_model = normalize_model_name(vision_model, default="qwen2.5vl:3b")
-    if vision_model == "qwen2.5vl:7b":
-        vision_model = "qwen2.5vl:3b"
-    ensure_ollama_ready(ollama_url, text_model, vision_model, use_ai, use_vision)
+    vision_model = normalize_model_name(vision_model, default="qwen3-vl:4b")
+    openai_api_key = openai_api_key.strip()
+    ensure_models_ready(ollama_url, text_model, vision_model, use_ai, use_vision, openai_api_key)
 
     if not file.filename or not file.filename.lower().endswith(".docx"):
         raise HTTPException(status_code=400, detail="DOCX 파일만 업로드할 수 있습니다.")
+    profile_payload = parse_profile_json(profile_json)
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     upload_path = UPLOAD_DIR / f"{uuid4().hex[:8]}_{safe_filename(file.filename)}"
     await save_upload_file(file, upload_path)
@@ -78,8 +83,23 @@ async def process_docx(
         ollama_url=ollama_url,
         use_ai=use_ai,
         use_vision=use_vision,
+        profile_payload=profile_payload,
+        openai_api_key=openai_api_key or None,
     )
     return public_result(result)
+
+
+def parse_profile_json(value: str) -> dict[str, Any] | None:
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        payload = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail=f"profile_json 형식이 올바르지 않습니다: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="profile_json은 JSON object여야 합니다.")
+    return payload
 
 
 def normalize_model_name(value: str | None, default: str) -> str:
@@ -87,18 +107,30 @@ def normalize_model_name(value: str | None, default: str) -> str:
     return value or default
 
 
-def ensure_ollama_ready(
+def ensure_models_ready(
     ollama_url: str,
     text_model: str,
     vision_model: str,
     use_ai: bool,
     use_vision: bool,
+    openai_api_key: str = "",
 ) -> None:
     required: list[str] = []
     if use_ai:
         required.append(text_model)
     if use_vision:
         required.append(vision_model)
+    if not required:
+        return
+
+    openai_required = [model for model in required if is_openai_model(model)]
+    if openai_required and not (openai_api_key or os.getenv("OPENAI_API_KEY")):
+        raise HTTPException(
+            status_code=400,
+            detail="GPT/OpenAI 모델을 사용하려면 OpenAI API Key를 입력하거나 OPENAI_API_KEY 환경변수를 설정하세요.",
+        )
+
+    required = [model for model in required if not is_openai_model(model)]
     if not required:
         return
 
@@ -135,12 +167,12 @@ async def save_upload_file(file: UploadFile, destination: Path) -> None:
 @app.get("/api/file")
 def download(path: str) -> FileResponse:
     target = Path(path).resolve()
-    root = ROOT.resolve()
+    output_root = OUTPUT_DIR.resolve()
     try:
-        target.relative_to(root)
+        target.relative_to(output_root)
     except ValueError:
         raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다.") from None
-    if not target.exists() or not target.is_file():
+    if not target.exists() or not target.is_file() or target.suffix.lower() not in ALLOWED_DOWNLOAD_SUFFIXES:
         raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다.")
     return FileResponse(target)
 
@@ -150,7 +182,9 @@ def public_result(result: dict[str, Any]) -> dict[str, Any]:
         return f"/api/file?path={Path(path).resolve()}" if path else None
 
     return {
-        **result,
+        "logs": result.get("logs", []),
+        "warnings": result.get("warnings", []),
+        "verification_report": result.get("verification_report"),
         "final_docx_url": file_url(result.get("final_docx")),
         "final_pdf_url": file_url(result.get("final_pdf")),
         "preview_urls": [file_url(path) for path in result.get("preview_pngs", [])],

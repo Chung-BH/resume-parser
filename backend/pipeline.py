@@ -10,7 +10,7 @@ from uuid import uuid4
 from .docx_analyzer import analyze_docx
 from .docx_writer import apply_operation_plan
 from .operation_planner import OperationPlanner
-from .profile_parser import ProfileParser
+from .profile_parser import ProfileParser, normalize_profile
 from .renderer import render_docx
 from .result_verifier import ResultVerifier
 from .utils import timestamp, write_json
@@ -26,6 +26,8 @@ def run_pipeline(
     ollama_url: str,
     use_vision: bool = True,
     use_ai: bool = True,
+    profile_payload: dict[str, Any] | None = None,
+    openai_api_key: str | None = None,
 ) -> dict[str, Any]:
     run_dir = Path(output_root) / f"run_{timestamp()}_{uuid4().hex[:8]}"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -38,37 +40,41 @@ def run_pipeline(
     def step(message: str) -> None:
         logs.append(message)
 
-    step(f"[1/8] {text_model}로 사용자 정보 JSON 구조화")
-    profile = ProfileParser(text_model, ollama_url, use_ai=use_ai).parse(user_text)
+    if profile_payload is not None:
+        step("[1/8] 입력 정보 정리")
+        profile = normalize_profile(profile_payload)
+    else:
+        step(f"[1/8] {text_model}로 입력 문장 정리")
+        profile = ProfileParser(text_model, ollama_url, use_ai=use_ai, openai_api_key=openai_api_key).parse(user_text)
     write_json(run_dir / "profile.json", profile)
 
-    step("[2/8] DOCX 구조와 입력 후보 분석")
+    step("[2/8] 문서 구조와 빈칸 후보 분석")
     layout = analyze_docx(copied_template)
     write_json(run_dir / "layout.json", layout)
 
-    step("[3/8] 원본 DOCX를 이미지로 렌더링")
+    step("[3/8] 원본 문서 미리보기 생성")
     original_render = render_docx(copied_template, run_dir / "original_preview", prefix="original")
     write_json(run_dir / "original_render.json", original_render)
 
-    step(f"[4/8] {vision_model}로 라벨/빈칸/표 구조 의미 분석")
-    vision = VisionAnalyzer(vision_model, ollama_url, enabled=use_vision).analyze(original_render, profile)
+    step(f"[4/8] {vision_model}로 라벨과 빈칸 위치 확인")
+    vision = VisionAnalyzer(vision_model, ollama_url, enabled=use_vision, openai_api_key=openai_api_key).analyze(original_render, profile)
     write_json(run_dir / "vision_fields.json", vision)
 
-    step(f"[5/8] {text_model}로 operation plan JSON 생성")
-    plan = OperationPlanner(text_model, ollama_url, enabled=use_ai).plan(profile, layout, vision)
+    step(f"[5/8] {text_model}로 입력값을 넣을 칸 결정")
+    plan = OperationPlanner(text_model, ollama_url, enabled=use_ai, openai_api_key=openai_api_key).plan(profile, layout, vision)
     write_json(run_dir / "operation_plan.json", plan)
 
-    step("[6/8] python-docx로 검증된 operation plan 적용")
+    step("[6/8] DOCX에 입력값 작성")
     final_docx = run_dir / "final.docx"
     write_report = apply_operation_plan(copied_template, plan, final_docx)
     write_json(run_dir / "write_report.json", write_report)
 
-    step("[7/8] 수정된 DOCX를 다시 이미지로 렌더링")
+    step("[7/8] 작성 결과 미리보기 생성")
     final_render = render_docx(final_docx, run_dir / "final_preview", prefix="final")
     write_json(run_dir / "final_render.json", final_render)
 
-    step(f"[8/8] {vision_model}로 작성 결과 자동 검증")
-    verification_report = ResultVerifier(vision_model, ollama_url, enabled=use_vision).verify(
+    step(f"[8/8] {vision_model}로 최종 결과 확인")
+    verification_report = ResultVerifier(vision_model, ollama_url, enabled=use_vision, openai_api_key=openai_api_key).verify(
         final_render=final_render,
         profile=profile,
         operation_plan=plan,

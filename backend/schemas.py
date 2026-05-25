@@ -17,6 +17,8 @@ PROFILE_SCHEMA: dict[str, Any] = {
     "education": [],
     "careers": [],
     "certificates": [],
+    "languages": [],
+    "military": [],
     "extra": {},
 }
 

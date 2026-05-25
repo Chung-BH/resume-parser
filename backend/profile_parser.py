@@ -6,16 +6,17 @@ import json
 import re
 from typing import Any
 
-from .ollama_client import OllamaError, generate_json
+from .ai_client import OllamaError, generate_json
 from .schemas import PROFILE_SCHEMA
 from .utils import clean_text
 
 
 class ProfileParser:
-    def __init__(self, model: str, ollama_url: str, use_ai: bool = True) -> None:
+    def __init__(self, model: str, ollama_url: str, use_ai: bool = True, openai_api_key: str | None = None) -> None:
         self.model = model
         self.ollama_url = ollama_url
         self.use_ai = use_ai
+        self.openai_api_key = openai_api_key
 
     def parse(self, text: str) -> dict[str, Any]:
         if self.use_ai:
@@ -26,14 +27,20 @@ Return only valid JSON matching this schema:
 Rules:
 - Extract only values present in the user's text.
 - Preserve Korean.
-- Use arrays for education, careers, certificates.
+- Use arrays for education, careers, certificates, languages, military.
+- Prefer object rows:
+  - education: period, school, major
+  - careers: period, company, position, role
+  - certificates: name, issuer, date
+  - languages: language, ability, test, score
+  - military: status, branch, service_type, rank, period, exemption_reason
 - Do not invent missing values.
 
 USER_TEXT:
 {text}
 """
             try:
-                payload = generate_json(prompt, self.model, self.ollama_url, timeout=120)
+                payload = generate_json(prompt, self.model, self.ollama_url, timeout=120, openai_api_key=self.openai_api_key)
                 if isinstance(payload, dict):
                     return normalize_profile(payload)
             except OllamaError:
@@ -44,15 +51,40 @@ USER_TEXT:
 def normalize_profile(payload: dict[str, Any]) -> dict[str, Any]:
     profile = json.loads(json.dumps(PROFILE_SCHEMA, ensure_ascii=False))
     for key in profile:
-        if key in {"education", "careers", "certificates"}:
+        if key in {"education", "careers", "certificates", "languages", "military"}:
             value = payload.get(key, [])
-            profile[key] = value if isinstance(value, list) else []
+            profile[key] = normalize_rows(key, value) if isinstance(value, list) else []
         elif key == "extra":
             value = payload.get(key, {})
             profile[key] = value if isinstance(value, dict) else {}
         else:
             profile[key] = clean_text(payload.get(key, ""))
     return profile
+
+
+def normalize_rows(section: str, rows: list[Any]) -> list[Any]:
+    keys_by_section = {
+        "education": ["period", "school", "major"],
+        "careers": ["period", "company", "position", "role"],
+        "certificates": ["name", "issuer", "date"],
+        "languages": ["language", "ability", "test", "score"],
+        "military": ["status", "branch", "service_type", "rank", "period", "exemption_reason"],
+    }
+    keys = keys_by_section.get(section, [])
+    normalized: list[Any] = []
+    for row in rows:
+        if isinstance(row, dict):
+            normalized.append({key: clean_text(row.get(key)) for key in keys if clean_text(row.get(key))})
+            continue
+        text = clean_text(row)
+        if not text:
+            continue
+        parts = [clean_text(part) for part in re.split(r"\s*/\s*", text) if clean_text(part)]
+        if keys and len(parts) >= 2:
+            normalized.append({key: value for key, value in zip(keys, parts) if value})
+        else:
+            normalized.append(text)
+    return normalized
 
 
 def fallback_parse(text: str) -> dict[str, Any]:
