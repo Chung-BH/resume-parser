@@ -38,16 +38,7 @@ class ResultVerifier:
         if not operation_plan.get("operations") or not written_fields:
             return no_written_operations_report(expected_fields, pngs)
         if not self.enabled or not pngs:
-            return normalize_verification(
-                {
-                    "status": "skipped",
-                    "summary": "vision verification skipped",
-                    "field_checks": [],
-                    "issues": [],
-                },
-                expected_fields,
-                pngs,
-            )
+            return verification_skipped_report(expected_fields, written_fields, pngs)
 
         prompt = build_prompt(expected_fields, operation_plan, written_fields)
         vision_images = prepare_vision_images(pngs, suffix="verify_input")
@@ -106,6 +97,48 @@ def no_written_operations_report(expected_fields: list[dict[str, str]], source_i
             }
             for item in expected_fields
         ],
+        "source_images": source_images,
+    }
+
+
+def verification_skipped_report(
+    expected_fields: list[dict[str, str]],
+    written_fields: list[dict[str, Any]],
+    source_images: list[str],
+) -> dict[str, Any]:
+    written_names = {str(item.get("field") or "") for item in written_fields}
+    field_checks: list[dict[str, Any]] = []
+    for item in expected_fields:
+        field = item["field"]
+        matched = field in written_names or any(name.startswith(f"{field}.") for name in written_names)
+        field_checks.append(
+            {
+                "field": field,
+                "expected_value": item["value"],
+                "status": "uncertain" if matched else "missing",
+                "visual_evidence": "DOCX write operation exists, but final vision verification was skipped."
+                if matched
+                else "No write operation matched this field.",
+                "confidence": 0.5 if matched else 0.0,
+            }
+        )
+    missing = [item["field"] for item in field_checks if item["status"] == "missing"]
+    return {
+        "status": "skipped",
+        "overall_confidence": 0.5 if written_fields else 0.0,
+        "confidence_threshold": CONFIDENCE_THRESHOLD,
+        "needs_user_confirmation": True,
+        "summary": "최종 비전 검증을 건너뛰었습니다. DOCX 작성은 수행됐지만 미리보기에서 최종 확인이 필요합니다.",
+        "field_checks": field_checks,
+        "layout_checks": {
+            "cells_intact": True,
+            "no_overlap": True,
+            "no_obvious_shift": True,
+            "confidence": 0.5,
+            "notes": "Final vision verification was skipped.",
+        },
+        "missing_fields": missing,
+        "issues": [],
         "source_images": source_images,
     }
 

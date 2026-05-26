@@ -33,7 +33,12 @@ ALLOWED_DOWNLOAD_SUFFIXES = {".docx", ".pdf", ".png", ".jpg", ".jpeg"}
 app = FastAPI(title="Local DOCX Agent MVP")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -60,12 +65,12 @@ async def process_docx(
     text_model: str = Form("qwen3:8b"),
     vision_model: str = Form("qwen3-vl:4b"),
     use_ai: bool = Form(True),
-    use_vision: bool = Form(True),
+    use_final_verification: bool = Form(True),
 ) -> dict[str, Any]:
     text_model = normalize_model_name(text_model, default="qwen3:8b")
     vision_model = normalize_model_name(vision_model, default="qwen3-vl:4b")
     openai_api_key = openai_api_key.strip()
-    ensure_models_ready(ollama_url, text_model, vision_model, use_ai, use_vision, openai_api_key)
+    ensure_models_ready(ollama_url, text_model, vision_model, use_ai, openai_api_key)
 
     if not file.filename or not file.filename.lower().endswith(".docx"):
         raise HTTPException(status_code=400, detail="DOCX 파일만 업로드할 수 있습니다.")
@@ -82,7 +87,7 @@ async def process_docx(
         vision_model=vision_model,
         ollama_url=ollama_url,
         use_ai=use_ai,
-        use_vision=use_vision,
+        use_final_verification=use_final_verification,
         profile_payload=profile_payload,
         openai_api_key=openai_api_key or None,
     )
@@ -112,14 +117,12 @@ def ensure_models_ready(
     text_model: str,
     vision_model: str,
     use_ai: bool,
-    use_vision: bool,
     openai_api_key: str = "",
 ) -> None:
     required: list[str] = []
     if use_ai:
         required.append(text_model)
-    if use_vision:
-        required.append(vision_model)
+    required.append(vision_model)
     if not required:
         return
 

@@ -133,7 +133,6 @@ def libreoffice_to_pdf(docx_path: str | Path, out_dir: str | Path) -> dict[str, 
             result["warnings"].append((completed.stderr or completed.stdout or "LibreOffice failed").strip())
             return result
     except subprocess.TimeoutExpired:
-        kill_office_processes()
         result["warnings"].append("LibreOffice conversion timed out")
         return result
     finally:
@@ -259,13 +258,6 @@ def run_process(command: list[str], timeout: int) -> subprocess.CompletedProcess
         time.sleep(0.5)
     stdout, stderr = process.communicate()
     return subprocess.CompletedProcess(command, process.returncode or 0, stdout, stderr)
-
-
-def kill_office_processes() -> None:
-    if os.name != "nt":
-        return
-    for name in ["soffice.exe", "soffice.bin", "soffice.com"]:
-        subprocess.run(["taskkill", "/IM", name, "/F"], check=False, capture_output=True, text=True)
 
 
 def load_font(image_font: Any, size: int) -> Any:

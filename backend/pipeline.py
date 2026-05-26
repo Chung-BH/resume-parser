@@ -24,7 +24,7 @@ def run_pipeline(
     text_model: str,
     vision_model: str,
     ollama_url: str,
-    use_vision: bool = True,
+    use_final_verification: bool = True,
     use_ai: bool = True,
     profile_payload: dict[str, Any] | None = None,
     openai_api_key: str | None = None,
@@ -57,7 +57,7 @@ def run_pipeline(
     write_json(run_dir / "original_render.json", original_render)
 
     step(f"[4/8] {vision_model}로 라벨과 빈칸 위치 확인")
-    vision = VisionAnalyzer(vision_model, ollama_url, enabled=use_vision, openai_api_key=openai_api_key).analyze(original_render, profile)
+    vision = VisionAnalyzer(vision_model, ollama_url, enabled=True, openai_api_key=openai_api_key).analyze(original_render, profile)
     write_json(run_dir / "vision_fields.json", vision)
 
     step(f"[5/8] {text_model}로 입력값을 넣을 칸 결정")
@@ -73,8 +73,11 @@ def run_pipeline(
     final_render = render_docx(final_docx, run_dir / "final_preview", prefix="final")
     write_json(run_dir / "final_render.json", final_render)
 
-    step(f"[8/8] {vision_model}로 최종 결과 확인")
-    verification_report = ResultVerifier(vision_model, ollama_url, enabled=use_vision, openai_api_key=openai_api_key).verify(
+    if use_final_verification:
+        step(f"[8/8] {vision_model}로 최종 결과 확인")
+    else:
+        step("[8/8] 최종 비전 검증 건너뜀")
+    verification_report = ResultVerifier(vision_model, ollama_url, enabled=use_final_verification, openai_api_key=openai_api_key).verify(
         final_render=final_render,
         profile=profile,
         operation_plan=plan,
@@ -109,7 +112,7 @@ def collect_warnings(*payloads: dict[str, Any]) -> list[str]:
             continue
         for item in payload.get("warnings", []):
             warnings.append(str(item))
-        if payload.get("needs_user_confirmation"):
+        if payload.get("needs_user_confirmation") and payload.get("status") != "skipped":
             warnings.append("검증 confidence가 낮아 사용자 확인이 필요합니다.")
         for issue in payload.get("issues", []):
             if isinstance(issue, dict) and issue.get("message"):

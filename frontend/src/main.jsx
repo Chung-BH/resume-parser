@@ -132,7 +132,7 @@ function App() {
   const [textModel, setTextModel] = useState("qwen3:8b");
   const [visionModel, setVisionModel] = useState("qwen3-vl:4b");
   const [useAi, setUseAi] = useState(true);
-  const [useVision, setUseVision] = useState(true);
+  const [useFinalVerification, setUseFinalVerification] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
@@ -157,7 +157,7 @@ function App() {
     form.append("text_model", textModel);
     form.append("vision_model", visionModel);
     form.append("use_ai", String(useAi));
-    form.append("use_vision", String(useVision));
+    form.append("use_final_verification", String(useFinalVerification));
 
     try {
       const response = await fetch("/api/process", {
@@ -233,7 +233,7 @@ function App() {
             <Input label="텍스트 판단 모델" value={textModel} onChange={setTextModel} />
             <Input label="비전 분석/검증 모델" value={visionModel} onChange={setVisionModel} />
             <Toggle label="AI 위치 판단 사용" checked={useAi} onChange={setUseAi} />
-            <Toggle label="비전 이미지 분석/검증 사용" checked={useVision} onChange={setUseVision} />
+            <Toggle label="최종 비전 검증 사용" checked={useFinalVerification} onChange={setUseFinalVerification} />
           </Panel>
 
           <Panel title="DOCX 업로드">
@@ -406,19 +406,24 @@ function VerificationSummary({ report }) {
   if (!report) return null;
   const confidence = Number(report.overall_confidence || 0);
   const percent = Math.round(confidence * 100);
+  const skipped = report.status === "skipped";
   const needsReview = Boolean(report.needs_user_confirmation);
 
   return (
-    <section className={`verify-card ${needsReview ? "review" : "pass"}`}>
+    <section className={`verify-card ${needsReview || skipped ? "review" : "pass"}`}>
       {needsReview ? <AlertTriangle size={22} /> : <CheckCircle2 size={22} />}
       <div>
         <div className="verify-header">
-          <h2>자동 검증 결과</h2>
-          <span>confidence {percent}%</span>
+          <h2>{skipped ? "최종 검증 생략" : "자동 검증 결과"}</h2>
+          {!skipped && <span>confidence {percent}%</span>}
           <span>{report.status}</span>
         </div>
         <p>{report.summary || "검증 요약이 없습니다."}</p>
-        {needsReview && <strong>confidence가 낮거나 의심 항목이 있어 최종 확인이 필요합니다.</strong>}
+        {skipped ? (
+          <strong>최종 비전 검증을 끈 상태라 미리보기에서 직접 확인하세요.</strong>
+        ) : (
+          needsReview && <strong>confidence가 낮거나 의심 항목이 있어 최종 확인이 필요합니다.</strong>
+        )}
       </div>
     </section>
   );
