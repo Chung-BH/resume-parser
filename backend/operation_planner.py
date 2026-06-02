@@ -20,11 +20,10 @@ from .utils import clean_text
 
 
 class OperationPlanner:
-    def __init__(self, model: str, ollama_url: str, enabled: bool = True, openai_api_key: str | None = None) -> None:
+    def __init__(self, model: str, ollama_url: str, enabled: bool = True) -> None:
         self.model = model
         self.ollama_url = ollama_url
         self.enabled = enabled
-        self.openai_api_key = openai_api_key
 
     def plan(self, profile: dict[str, Any], layout: dict[str, Any], vision: dict[str, Any]) -> dict[str, Any]:
         fields = profile_to_fields(profile)
@@ -46,7 +45,6 @@ class OperationPlanner:
                     self.model,
                     self.ollama_url,
                     timeout=45,
-                    openai_api_key=self.openai_api_key,
                 )
             except OllamaError as exc:
                 errors.append(f"{field['field']}: {exc}")
@@ -64,7 +62,6 @@ class OperationPlanner:
                     self.model,
                     self.ollama_url,
                     timeout=75,
-                    openai_api_key=self.openai_api_key,
                 )
             except OllamaError as exc:
                 errors.append(f"{record_key}: {exc}")

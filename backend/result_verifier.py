@@ -15,11 +15,10 @@ CONFIDENCE_THRESHOLD = 0.72
 
 
 class ResultVerifier:
-    def __init__(self, model: str, ollama_url: str, enabled: bool = True, openai_api_key: str | None = None) -> None:
+    def __init__(self, model: str, ollama_url: str, enabled: bool = True) -> None:
         self.model = model
         self.ollama_url = ollama_url
         self.enabled = enabled
-        self.openai_api_key = openai_api_key
 
     def verify(
         self,
@@ -52,7 +51,6 @@ class ResultVerifier:
                 retries=0,
                 max_side=640,
                 num_predict=1800,
-                openai_api_key=self.openai_api_key,
             )
         except OllamaError as exc:
             return written_but_unverified_report(expected_fields, written_fields, pngs, str(exc))

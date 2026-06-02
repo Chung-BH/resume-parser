@@ -27,7 +27,6 @@ def run_pipeline(
     use_final_verification: bool = True,
     use_ai: bool = True,
     profile_payload: dict[str, Any] | None = None,
-    openai_api_key: str | None = None,
 ) -> dict[str, Any]:
     run_dir = Path(output_root) / f"run_{timestamp()}_{uuid4().hex[:8]}"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -45,7 +44,7 @@ def run_pipeline(
         profile = normalize_profile(profile_payload)
     else:
         step(f"[1/8] {text_model}로 입력 문장 정리")
-        profile = ProfileParser(text_model, ollama_url, use_ai=use_ai, openai_api_key=openai_api_key).parse(user_text)
+        profile = ProfileParser(text_model, ollama_url, use_ai=use_ai).parse(user_text)
     write_json(run_dir / "profile.json", profile)
 
     step("[2/8] 문서 구조와 빈칸 후보 분석")
@@ -57,11 +56,11 @@ def run_pipeline(
     write_json(run_dir / "original_render.json", original_render)
 
     step(f"[4/8] {vision_model}로 라벨과 빈칸 위치 확인")
-    vision = VisionAnalyzer(vision_model, ollama_url, enabled=True, openai_api_key=openai_api_key).analyze(original_render, profile)
+    vision = VisionAnalyzer(vision_model, ollama_url, enabled=True).analyze(original_render, profile)
     write_json(run_dir / "vision_fields.json", vision)
 
     step(f"[5/8] {text_model}로 입력값을 넣을 칸 결정")
-    plan = OperationPlanner(text_model, ollama_url, enabled=use_ai, openai_api_key=openai_api_key).plan(profile, layout, vision)
+    plan = OperationPlanner(text_model, ollama_url, enabled=use_ai).plan(profile, layout, vision)
     write_json(run_dir / "operation_plan.json", plan)
 
     step("[6/8] DOCX에 입력값 작성")
@@ -77,7 +76,7 @@ def run_pipeline(
         step(f"[8/8] {vision_model}로 최종 결과 확인")
     else:
         step("[8/8] 최종 비전 검증 건너뜀")
-    verification_report = ResultVerifier(vision_model, ollama_url, enabled=use_final_verification, openai_api_key=openai_api_key).verify(
+    verification_report = ResultVerifier(vision_model, ollama_url, enabled=use_final_verification).verify(
         final_render=final_render,
         profile=profile,
         operation_plan=plan,

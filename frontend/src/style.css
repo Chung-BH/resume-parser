@@ -1,6 +1,6 @@
 :root {
-  color: #172033;
-  background: #f5f7fb;
+  color: #1f2933;
+  background: #f6f7f8;
   font-family:
     Inter, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", system-ui,
     sans-serif;
@@ -12,9 +12,7 @@
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at top left, rgba(74, 109, 255, 0.08), transparent 28rem),
-    #f5f7fb;
+  background: #f6f7f8;
 }
 
 button,
@@ -36,9 +34,9 @@ textarea {
   justify-content: space-between;
   gap: 1rem;
   padding: 1.15rem 1.5rem;
-  border-bottom: 1px solid #dfe4ee;
+  border-bottom: 1px solid #d9dee5;
   background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(8px);
 }
 
 .topbar h1 {
@@ -49,7 +47,7 @@ textarea {
 
 .eyebrow {
   margin: 0 0 0.3rem;
-  color: #526079;
+  color: #64707d;
   font-size: 0.76rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -57,7 +55,7 @@ textarea {
 
 .subtitle {
   margin: 0.35rem 0 0;
-  color: #65718a;
+  color: #687480;
   font-size: 0.92rem;
 }
 
@@ -86,14 +84,14 @@ textarea {
 
 .btn.primary {
   color: white;
-  background: #172033;
-  box-shadow: 0 8px 18px rgba(23, 32, 51, 0.18);
+  background: #1f2933;
+  box-shadow: 0 6px 14px rgba(31, 41, 51, 0.14);
 }
 
 .btn.secondary,
 .btn.download {
-  color: #172033;
-  border-color: #cfd6e4;
+  color: #1f2933;
+  border-color: #cfd6dc;
   background: white;
 }
 
@@ -110,10 +108,10 @@ textarea {
   max-width: 1180px;
   margin: 1rem auto 0;
   padding: 0.8rem 1rem;
-  border: 1px solid #cfe0ff;
+  border: 1px solid #d8e0e8;
   border-radius: 0.5rem;
-  background: #eef5ff;
-  color: #28466f;
+  background: #f3f6f8;
+  color: #334155;
 }
 
 .status-strip strong,
@@ -129,8 +127,8 @@ textarea {
 .spinner {
   width: 1.05rem;
   height: 1.05rem;
-  border: 2px solid #99b9ee;
-  border-top-color: #245ac4;
+  border: 2px solid #c5ced8;
+  border-top-color: #475569;
   border-radius: 999px;
   animation: spin 0.8s linear infinite;
 }
@@ -160,10 +158,10 @@ textarea {
 
 .panel,
 .verify-card {
-  border: 1px solid #dfe4ee;
+  border: 1px solid #dfe3e8;
   border-radius: 0.55rem;
   background: white;
-  box-shadow: 0 8px 24px rgba(29, 43, 76, 0.05);
+  box-shadow: 0 6px 18px rgba(31, 41, 51, 0.04);
 }
 
 .panel {
@@ -175,14 +173,14 @@ textarea {
   margin: 0 0 0.85rem;
   font-size: 0.92rem;
   font-weight: 800;
-  color: #172033;
+  color: #1f2933;
 }
 
 .field {
   display: grid;
   gap: 0.35rem;
   margin-bottom: 0.85rem;
-  color: #526079;
+  color: #53606c;
   font-size: 0.83rem;
   font-weight: 700;
 }
@@ -191,10 +189,10 @@ textarea {
 .profile-textarea,
 .extra-textarea {
   width: 100%;
-  border: 1px solid #cfd6e4;
+  border: 1px solid #cfd6dc;
   border-radius: 0.42rem;
-  background: #fbfcff;
-  color: #172033;
+  background: #fbfcfd;
+  color: #1f2933;
   outline: none;
 }
 
@@ -218,43 +216,8 @@ textarea {
 .field input:focus,
 .profile-textarea:focus,
 .extra-textarea:focus {
-  border-color: #5977e8;
-  box-shadow: 0 0 0 3px rgba(89, 119, 232, 0.13);
-}
-
-.model-presets {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem;
-  margin-bottom: 0.9rem;
-}
-
-.preset-btn {
-  display: grid;
-  gap: 0.2rem;
-  min-height: 3.25rem;
-  padding: 0.65rem 0.7rem;
-  border: 1px solid #cfd6e4;
-  border-radius: 0.45rem;
-  background: #fbfcff;
-  color: #172033;
-  text-align: left;
-  cursor: pointer;
-}
-
-.preset-btn strong {
-  font-size: 0.85rem;
-}
-
-.preset-btn span {
-  color: #66738c;
-  font-size: 0.72rem;
-}
-
-.preset-btn.active {
-  border-color: #5977e8;
-  background: #eef3ff;
-  box-shadow: inset 0 0 0 1px rgba(89, 119, 232, 0.35);
+  border-color: #64748b;
+  box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.12);
 }
 
 .profile-form {
@@ -298,9 +261,9 @@ textarea {
   gap: 0.55rem;
   align-items: end;
   padding: 0.75rem;
-  border: 1px solid #e4e9f2;
+  border: 1px solid #e2e6ea;
   border-radius: 0.45rem;
-  background: #fbfcff;
+  background: #fbfcfd;
 }
 
 .entry-row .field {
@@ -313,10 +276,10 @@ textarea {
   justify-content: center;
   width: 2.25rem;
   height: 2.35rem;
-  border: 1px solid #d5dceb;
+  border: 1px solid #d5dbe1;
   border-radius: 0.42rem;
   background: white;
-  color: #66738c;
+  color: #64707d;
   cursor: pointer;
 }
 
@@ -334,7 +297,7 @@ textarea {
   align-items: center;
   gap: 0.55rem;
   margin: 0.65rem 0;
-  color: #344158;
+  color: #334155;
   font-size: 0.9rem;
 }
 
@@ -349,18 +312,18 @@ textarea {
   gap: 0.35rem;
   min-height: 8.5rem;
   padding: 1.3rem;
-  border: 1px dashed #aeb8cb;
+  border: 1px dashed #aeb8c1;
   border-radius: 0.5rem;
-  background: #f8faff;
-  color: #526079;
+  background: #fafbfc;
+  color: #53606c;
   cursor: pointer;
   text-align: center;
 }
 
 .dropzone.has-file {
-  border-color: #5d78dc;
-  background: #f1f5ff;
-  color: #172033;
+  border-color: #64748b;
+  background: #f3f5f7;
+  color: #1f2933;
 }
 
 .dropzone input {
@@ -368,7 +331,7 @@ textarea {
 }
 
 .dropzone small {
-  color: #77839b;
+  color: #7a8590;
 }
 
 .notice {
@@ -390,8 +353,8 @@ textarea {
 }
 
 .verify-card.pass {
-  border-color: #b9e4cd;
-  background: #effaf4;
+  border-color: #b9dec9;
+  background: #f1f8f4;
   color: #17613a;
 }
 
@@ -424,7 +387,7 @@ textarea {
 
 .verify-card p {
   margin: 0.55rem 0 0;
-  color: #344158;
+  color: #334155;
 }
 
 .verify-card strong {
@@ -435,7 +398,7 @@ textarea {
 .elapsed,
 .warning-text {
   margin: 0 0 0.75rem;
-  color: #65718a;
+  color: #687480;
   font-size: 0.83rem;
 }
 
@@ -453,7 +416,7 @@ textarea {
   width: 100%;
   max-height: 860px;
   object-fit: contain;
-  border: 1px solid #dfe4ee;
+  border: 1px solid #dfe3e8;
   border-radius: 0.45rem;
   background: white;
 }
@@ -462,7 +425,7 @@ textarea {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  color: #77839b;
+  color: #7a8590;
 }
 
 .details-panel {
@@ -486,8 +449,8 @@ textarea {
 
 .log-box {
   padding: 0.85rem;
-  background: #f2f5fa;
-  color: #344158;
+  background: #f3f5f7;
+  color: #334155;
 }
 
 .process-details {
@@ -516,7 +479,6 @@ textarea {
   .form-grid.two,
   .form-grid.columns-3,
   .form-grid.columns-4,
-  .model-presets,
   .entry-row {
     grid-template-columns: 1fr;
   }

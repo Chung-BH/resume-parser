@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -17,7 +16,7 @@ try:
 except ImportError as exc:  # pragma: no cover
     raise RuntimeError("FastAPI dependencies are missing. Run: pip install -r requirements.txt") from exc
 
-from .ai_client import is_openai_model, list_models
+from .ai_client import list_models
 from .pipeline import run_pipeline
 from .utils import safe_filename
 
@@ -61,7 +60,6 @@ async def process_docx(
     user_text: str = Form(...),
     profile_json: str = Form(""),
     ollama_url: str = Form("http://localhost:11434"),
-    openai_api_key: str = Form(""),
     text_model: str = Form("qwen3:8b"),
     vision_model: str = Form("qwen3-vl:4b"),
     use_ai: bool = Form(True),
@@ -69,8 +67,7 @@ async def process_docx(
 ) -> dict[str, Any]:
     text_model = normalize_model_name(text_model, default="qwen3:8b")
     vision_model = normalize_model_name(vision_model, default="qwen3-vl:4b")
-    openai_api_key = openai_api_key.strip()
-    ensure_models_ready(ollama_url, text_model, vision_model, use_ai, openai_api_key)
+    ensure_models_ready(ollama_url, text_model, vision_model, use_ai)
 
     if not file.filename or not file.filename.lower().endswith(".docx"):
         raise HTTPException(status_code=400, detail="DOCX 파일만 업로드할 수 있습니다.")
@@ -89,7 +86,6 @@ async def process_docx(
         use_ai=use_ai,
         use_final_verification=use_final_verification,
         profile_payload=profile_payload,
-        openai_api_key=openai_api_key or None,
     )
     return public_result(result)
 
@@ -117,23 +113,11 @@ def ensure_models_ready(
     text_model: str,
     vision_model: str,
     use_ai: bool,
-    openai_api_key: str = "",
 ) -> None:
     required: list[str] = []
     if use_ai:
         required.append(text_model)
     required.append(vision_model)
-    if not required:
-        return
-
-    openai_required = [model for model in required if is_openai_model(model)]
-    if openai_required and not (openai_api_key or os.getenv("OPENAI_API_KEY")):
-        raise HTTPException(
-            status_code=400,
-            detail="GPT/OpenAI 모델을 사용하려면 OpenAI API Key를 입력하거나 OPENAI_API_KEY 환경변수를 설정하세요.",
-        )
-
-    required = [model for model in required if not is_openai_model(model)]
     if not required:
         return
 

@@ -10,11 +10,10 @@ from .ai_client import OllamaError, generate_json_with_images
 
 
 class VisionAnalyzer:
-    def __init__(self, model: str, ollama_url: str, enabled: bool = True, openai_api_key: str | None = None) -> None:
+    def __init__(self, model: str, ollama_url: str, enabled: bool = True) -> None:
         self.model = model
         self.ollama_url = ollama_url
         self.enabled = enabled
-        self.openai_api_key = openai_api_key
 
     def analyze(self, render: dict[str, Any], profile: dict[str, Any]) -> dict[str, Any]:
         pngs = select_pages(render.get("pngs", []), max_pages=3)
@@ -45,7 +44,6 @@ class VisionAnalyzer:
                     max_side=1100,
                     num_predict=1400,
                     format_schema=vision_schema(),
-                    openai_api_key=self.openai_api_key,
                 )
             except OllamaError as exc:
                 warnings.append(f"page {page_number}: {exc}")

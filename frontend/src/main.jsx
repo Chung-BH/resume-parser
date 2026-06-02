@@ -107,23 +107,6 @@ const sectionConfigs = {
   },
 };
 
-const modelPresets = [
-  {
-    id: "ollama",
-    label: "로컬 Ollama",
-    description: "qwen3 + qwen3-vl",
-    textModel: "qwen3:8b",
-    visionModel: "qwen3-vl:4b",
-  },
-  {
-    id: "openai",
-    label: "OpenAI GPT",
-    description: "OPENAI_API_KEY 필요",
-    textModel: "gpt-5-mini",
-    visionModel: "gpt-5-mini",
-  },
-];
-
 function App() {
   const abortRef = useRef(null);
   const [file, setFile] = useState(null);
@@ -186,20 +169,14 @@ function App() {
     abortRef.current?.abort();
   }
 
-  function applyModelPreset(preset) {
-    setTextModel(preset.textModel);
-    setVisionModel(preset.visionModel);
-  }
-
-  const activePreset = modelPresets.find((preset) => preset.textModel === textModel && preset.visionModel === visionModel)?.id || "custom";
 
   return (
     <main className="app-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Local AI DOCX workflow</p>
-          <h1>DOCX 자동 작성 MVP</h1>
-          <p className="subtitle">개인정보는 직접 입력하고, AI는 문서에서 넣을 위치를 판단합니다.</p>
+          <p className="eyebrow">Document workbench</p>
+          <h1>지원서 문서 작성</h1>
+          <p className="subtitle">양식을 선택하고 정보를 입력해 결과 문서를 생성합니다.</p>
         </div>
         <div className="topbar-actions">
           {loading && (
@@ -210,7 +187,7 @@ function App() {
           )}
           <button className="btn primary" onClick={run} disabled={!file || loading}>
             <Play size={16} />
-            {loading ? "처리 중" : "자동 작성 실행"}
+            {loading ? "작성 중" : "작성 실행"}
           </button>
         </div>
       </header>
@@ -219,21 +196,20 @@ function App() {
         <section className="status-strip">
           <span className="spinner" />
           <div>
-            <strong>문서를 처리하고 있습니다.</strong>
-            <span>비전 모델 검증은 오래 걸릴 수 있습니다. 필요하면 중단을 누르세요.</span>
+            <strong>문서를 작성하고 있습니다.</strong>
+            <span>문서 분석과 렌더링을 진행하고 있습니다.</span>
           </div>
         </section>
       )}
 
       <section className="workspace">
         <aside className="side-panel">
-          <Panel title="모델 설정">
-            <ModelPresetButtons activePreset={activePreset} onSelect={applyModelPreset} />
-            <Input label="Ollama URL" value={ollamaUrl} onChange={setOllamaUrl} />
-            <Input label="텍스트 판단 모델" value={textModel} onChange={setTextModel} />
-            <Input label="비전 분석/검증 모델" value={visionModel} onChange={setVisionModel} />
-            <Toggle label="AI 위치 판단 사용" checked={useAi} onChange={setUseAi} />
-            <Toggle label="최종 비전 검증 사용" checked={useFinalVerification} onChange={setUseFinalVerification} />
+          <Panel title="처리 설정">
+            <Input label="Ollama 주소" value={ollamaUrl} onChange={setOllamaUrl} />
+            <Input label="텍스트 모델" value={textModel} onChange={setTextModel} />
+            <Input label="이미지 모델" value={visionModel} onChange={setVisionModel} />
+            <Toggle label="자동 위치 매핑" checked={useAi} onChange={setUseAi} />
+            <Toggle label="최종 화면 검토" checked={useFinalVerification} onChange={setUseFinalVerification} />
           </Panel>
 
           <Panel title="DOCX 업로드">
@@ -254,24 +230,6 @@ function App() {
         </section>
       </section>
     </main>
-  );
-}
-
-function ModelPresetButtons({ activePreset, onSelect }) {
-  return (
-    <div className="model-presets">
-      {modelPresets.map((preset) => (
-        <button
-          key={preset.id}
-          className={`preset-btn ${activePreset === preset.id ? "active" : ""}`}
-          type="button"
-          onClick={() => onSelect(preset)}
-        >
-          <strong>{preset.label}</strong>
-          <span>{preset.description}</span>
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -368,7 +326,7 @@ function ResultView({ result, elapsedMs }) {
     <div className="result-stack">
       <VerificationSummary report={result.verification_report} />
 
-      <Panel title="결과 다운로드">
+      <Panel title="결과 파일">
         {elapsedMs !== null && <p className="elapsed">총 소요 시간: {formatElapsed(elapsedMs)}</p>}
         <div className="download-row">
           {result.final_docx_url && <DownloadLink href={result.final_docx_url} label="DOCX 다운로드" />}
@@ -377,7 +335,7 @@ function ResultView({ result, elapsedMs }) {
         {result.warnings?.length > 0 && <p className="warning-text">{result.warnings.join(" / ")}</p>}
       </Panel>
 
-      <Panel title="최종 미리보기">
+      <Panel title="최종 문서">
         {result.preview_urls?.length ? (
           <div className="preview-list">
             {result.preview_urls.map((url, index) => (
@@ -414,15 +372,15 @@ function VerificationSummary({ report }) {
       {needsReview ? <AlertTriangle size={22} /> : <CheckCircle2 size={22} />}
       <div>
         <div className="verify-header">
-          <h2>{skipped ? "최종 검증 생략" : "자동 검증 결과"}</h2>
-          {!skipped && <span>confidence {percent}%</span>}
+          <h2>{skipped ? "최종 확인 생략" : "검토 결과"}</h2>
+          {!skipped && <span>신뢰도 {percent}%</span>}
           <span>{report.status}</span>
         </div>
-        <p>{report.summary || "검증 요약이 없습니다."}</p>
+        <p>{report.summary || "검토 요약이 없습니다."}</p>
         {skipped ? (
-          <strong>최종 비전 검증을 끈 상태라 미리보기에서 직접 확인하세요.</strong>
+          <strong>최종 확인을 끈 상태라 미리보기에서 직접 확인하세요.</strong>
         ) : (
-          needsReview && <strong>confidence가 낮거나 의심 항목이 있어 최종 확인이 필요합니다.</strong>
+          needsReview && <strong>신뢰도가 낮거나 의심 항목이 있어 최종 확인이 필요합니다.</strong>
         )}
       </div>
     </section>

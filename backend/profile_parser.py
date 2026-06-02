@@ -12,11 +12,10 @@ from .utils import clean_text
 
 
 class ProfileParser:
-    def __init__(self, model: str, ollama_url: str, use_ai: bool = True, openai_api_key: str | None = None) -> None:
+    def __init__(self, model: str, ollama_url: str, use_ai: bool = True) -> None:
         self.model = model
         self.ollama_url = ollama_url
         self.use_ai = use_ai
-        self.openai_api_key = openai_api_key
 
     def parse(self, text: str) -> dict[str, Any]:
         if self.use_ai:
@@ -40,7 +39,7 @@ USER_TEXT:
 {text}
 """
             try:
-                payload = generate_json(prompt, self.model, self.ollama_url, timeout=120, openai_api_key=self.openai_api_key)
+                payload = generate_json(prompt, self.model, self.ollama_url, timeout=120)
                 if isinstance(payload, dict):
                     return normalize_profile(payload)
             except OllamaError:
